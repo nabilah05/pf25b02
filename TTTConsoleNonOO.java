@@ -12,6 +12,7 @@ public class TTTConsoleNonOO {
     public static final int NOUGHT  = 1;
     public static final int NO_SEED = 2;
 
+    public static final boolean LOOP = true;
     // The game board
     public static final int ROWS = 3, COLS = 3;  // number of rows/columns
     public static int[][] board = new int[ROWS][COLS]; // EMPTY, CROSS, NOUGHT
@@ -31,47 +32,41 @@ public class TTTConsoleNonOO {
 
     /** The entry main method (the program starts here) */
     public static void main(String[] args) {
+        do {
         // Initialize the board, currentState and currentPlayer
         // in main()
         do {
-            // Play the game once
-            initGame();
-
-            do {
-                // currentPlayer makes a move
-                // Update board[selectedRow][selectedCol] and currentState
-                stepGame();
-                // Refresh the display
-                paintBoard();
-                // Print message if game over
-                if (currentState == CROSS_WON) {
-                    System.out.println("'X' won!\n");
-                } else if (currentState == NOUGHT_WON) {
-                    System.out.println("'O' won!\n");
-                } else if (currentState == DRAW) {
-                    System.out.println("It's a Draw!\n");
-                }
-                // Switch currentPlayer
-                currentPlayer = (currentPlayer == CROSS) ? NOUGHT : CROSS;
-            } while (currentState == PLAYING);
+            // currentPlayer makes a move
+            // Update board[selectedRow][selectedCol] and currentState
+            stepGame();
+            // Refresh the display
+            paintBoard();
+            // Print message if game over
+            if (currentState == CROSS_WON) {
+                System.out.println("'X' won!\nBye!");
+            } else if (currentState == NOUGHT_WON) {
+                System.out.println("'O' won!\nBye!");
+            } else if (currentState == DRAW) {
+                System.out.println("It's a Draw!\nBye!");
+            }
+            // Switch currentPlayer
+            currentPlayer = (currentPlayer == CROSS) ? NOUGHT : CROSS;
+        } while (currentState == PLAYING); // repeat if not game over
 
             boolean validInput = false;
-
             do {
-                System.out.print("Play again (y/n)? ");
-                char ans = in.next().charAt(0);
-                if(ans == 'y' || ans == 'Y' || ans == 'n' || ans == 'N'){
-                    validInput = true;
-                    if (ans != 'y' && ans != 'Y') {
-                        System.out.println("Bye!");
-                        System.exit(0);  // terminate the program
-                    }
-                } else {
-                    System.out.println("Input is not valid!");
-
-                }
+            // Prompt the user whether to play again
+            System.out.print("Play again (y/n)? ");
+            char ans = in.next().charAt(0);
+            if (ans == 'n' || ans == 'N') {
+                System.out.println("Bye!");
+                System.exit(0);  // terminate the program
+            } else if (ans == 'y' || ans == 'Y') {
+                validInput = true;
+            } else {
+                System.out.println("Invalid input, try again!");
+            }
             } while (!validInput);
-
         } while (true);  // repeat until user did not answer yes
     }
 
