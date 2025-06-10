@@ -34,9 +34,7 @@ public class TTTConsoleNonOO {
     public static void main(String[] args) {
         do {
         // Initialize the board, currentState and currentPlayer
-        initGame();
-
-        // Play the game once
+        // in main()
         do {
             // currentPlayer makes a move
             // Update board[selectedRow][selectedCol] and currentState
