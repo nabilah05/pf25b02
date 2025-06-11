@@ -1,82 +1,129 @@
-import java.util.Scanner;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
 /**
- * The main class for the Tic-Tac-Toe (Console-OO, non-graphics version)
- * It acts as the overall controller of the game.
+ * Tic-Tac-Toe: Two-player Graphic version with better OO design.
+ * The Board and Cell classes are separated in their own classes.
  */
-public class GameMain {
-    // Define properties
-    /** The game board */
-    private Board board;
-    /** The current state of the game (of enum State) */
-    private State currentState;
-    /** The current player (of enum Seed) */
-    private Seed  currentPlayer;
+public class GameMain extends JPanel {
+    private static final long serialVersionUID = 1L; // to prevent serializable warning
 
-    private static Scanner in = new Scanner(System.in);
+    // Define named constants for the drawing graphics
+    public static final String TITLE = "Tic Tac Toe";
+    public static final Color COLOR_BG = Color.WHITE;
+    public static final Color COLOR_BG_STATUS = new Color(216, 216, 216);
+    public static final Color COLOR_CROSS = new Color(239, 105, 80);  // Red #EF6950
+    public static final Color COLOR_NOUGHT = new Color(64, 154, 225); // Blue #409AE1
+    public static final Font FONT_STATUS = new Font("OCR A Extended", Font.PLAIN, 14);
 
-    /** Constructor to setup the game */
+    // Define game objects
+    private Board board;         // the game board
+    private State currentState;  // the current state of the game
+    private Seed currentPlayer;  // the current player
+    private JLabel statusBar;    // for displaying status message
+
+    /** Constructor to setup the UI and game components */
     public GameMain() {
-        // Perform one-time initialization tasks
+
+        // This JPanel fires MouseEvent
+        super.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {  // mouse-clicked handler
+                int mouseX = e.getX();
+                int mouseY = e.getY();
+                // Get the row and column clicked
+                int row = mouseY / Cell.SIZE;
+                int col = mouseX / Cell.SIZE;
+
+                if (currentState == State.PLAYING) {
+                    if (row >= 0 && row < Board.ROWS && col >= 0 && col < Board.COLS
+                            && board.cells[row][col].content == Seed.NO_SEED) {
+                        // Update cells[][] and return the new game state after the move
+                        currentState = board.stepGame(currentPlayer, row, col);
+                        // Switch player
+                        currentPlayer = (currentPlayer == Seed.CROSS) ? Seed.NOUGHT : Seed.CROSS;
+                    }
+                } else {        // game over
+                    newGame();  // restart the game
+                }
+                // Refresh the drawing canvas
+                repaint();  // Callback paintComponent().
+            }
+        });
+
+        // Setup the status bar (JLabel) to display status message
+        statusBar = new JLabel();
+        statusBar.setFont(FONT_STATUS);
+        statusBar.setBackground(COLOR_BG_STATUS);
+        statusBar.setOpaque(true);
+        statusBar.setPreferredSize(new Dimension(300, 30));
+        statusBar.setHorizontalAlignment(JLabel.LEFT);
+        statusBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 12));
+
+        super.setLayout(new BorderLayout());
+        super.add(statusBar, BorderLayout.PAGE_END); // same as SOUTH
+        super.setPreferredSize(new Dimension(Board.CANVAS_WIDTH, Board.CANVAS_HEIGHT + 30));
+        // account for statusBar in height
+        super.setBorder(BorderFactory.createLineBorder(COLOR_BG_STATUS, 2, false));
+
+        // Set up Game
         initGame();
-
-        // Reset the board, currentStatus and currentPlayer
         newGame();
-
-        // Play the game once
-        do {
-            // The currentPlayer makes a move.
-            // Update cells[][] and currentState
-            stepGame();
-            // Refresh the display
-            board.paint();
-            // Print message if game over
-            if (currentState == State.CROSS_WON) {
-                System.out.println("'X' won!\nBye!");
-            } else if (currentState == State.NOUGHT_WON) {
-                System.out.println("'O' won!\nBye!");
-            } else if (currentState == State.DRAW) {
-                System.out.println("It's Draw!\nBye!");
-            }
-            // Switch currentPlayer
-            currentPlayer = (currentPlayer == Seed.CROSS) ? Seed.NOUGHT : Seed.CROSS;
-        } while (currentState == State.PLAYING);  // repeat until game over
     }
 
-    /** Perform one-time initialization tasks */
+    /** Initialize the game (run once) */
     public void initGame() {
-        board = new Board();  // allocate game-board
+        board = new Board();  // allocate the game-board
     }
 
-    /** Reset the game-board contents and the current states, ready for new game */
+    /** Reset the game-board contents and the current-state, ready for new game */
     public void newGame() {
-        board.newGame();  // clear the board contents
-        currentPlayer = Seed.CROSS;   // CROSS plays first
-        currentState = State.PLAYING; // ready to play
-    }
-
-    /** The currentPlayer makes one move.
-     Update cells[][] and currentState. */
-    public void stepGame() {
-        boolean validInput = false;  // for validating input
-        do {
-            String icon = currentPlayer.getIcon();
-            System.out.print("Player '" + icon + "', enter your move (row[1-3] column[1-3]): ");
-            int row = in.nextInt() - 1;   // [0-2]
-            int col = in.nextInt() - 1;
-            if (row >= 0 && row < Board.ROWS && col >= 0 && col < Board.COLS
-                    && board.cells[row][col].content == Seed.NO_SEED) {
-                // Update cells[][] and return the new game state after the move
-                currentState = board.stepGame(currentPlayer, row, col);
-                validInput = true; // input okay, exit loop
-            } else {
-                System.out.println("This move at (" + (row + 1) + "," + (col + 1)
-                        + ") is not valid. Try again...");
+        for (int row = 0; row < Board.ROWS; ++row) {
+            for (int col = 0; col < Board.COLS; ++col) {
+                board.cells[row][col].content = Seed.NO_SEED; // all cells empty
             }
-        } while (!validInput);   // repeat until input is valid
+        }
+        currentPlayer = Seed.CROSS;    // cross plays first
+        currentState = State.PLAYING;  // ready to play
     }
 
-    /** The entry main() method */
+    /** Custom painting codes on this JPanel */
+    @Override
+    public void paintComponent(Graphics g) {  // Callback via repaint()
+        super.paintComponent(g);
+        setBackground(COLOR_BG); // set its background color
+
+        board.paint(g);  // ask the game board to paint itself
+
+        // Print status-bar message
+        if (currentState == State.PLAYING) {
+            statusBar.setForeground(Color.BLACK);
+            statusBar.setText((currentPlayer == Seed.CROSS) ? "X's Turn" : "O's Turn");
+        } else if (currentState == State.DRAW) {
+            statusBar.setForeground(Color.RED);
+            statusBar.setText("It's a Draw! Click to play again.");
+        } else if (currentState == State.CROSS_WON) {
+            statusBar.setForeground(Color.RED);
+            statusBar.setText("'X' Won! Click to play again.");
+        } else if (currentState == State.NOUGHT_WON) {
+            statusBar.setForeground(Color.RED);
+            statusBar.setText("'O' Won! Click to play again.");
+        }
+    }
+
+    /** The entry "main" method */
     public static void main(String[] args) {
-        new GameMain();  // Let the constructor do the job
+        // Run GUI construction codes in Event-Dispatching thread for thread safety
+        javax.swing.SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                JFrame frame = new JFrame(TITLE);
+                // Set the content-pane of the JFrame to an instance of main JPanel
+                frame.setContentPane(new GameMain());
+                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                frame.pack();
+                frame.setLocationRelativeTo(null); // center the application window
+                frame.setVisible(true);            // show it
+            }
+        });
     }
 }
