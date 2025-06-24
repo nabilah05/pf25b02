@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.*;
+import java.security.MessageDigest;
 
 public class LoginDialog extends JDialog {
     private JTextField tfUsername;
@@ -9,7 +10,6 @@ public class LoginDialog extends JDialog {
     private JButton btnLogin, btnSignUp, btnCancel;
     private boolean succeeded;
 
-    // Database connection info
     private static final String DB_HOST = "mysql-3cca993-fixgmc-e8b8.c.aivencloud.com";
     private static final String DB_PORT = "21268";
     private static final String DB_NAME = "tictactoedb";
@@ -60,8 +60,9 @@ public class LoginDialog extends JDialog {
         btnLogin.addActionListener(e -> {
             String username = getUsername();
             String password = getPassword();
+            String hashedPassword = hashPassword(password);
 
-            if (authenticate(username, password)) {
+            if (authenticate(username, hashedPassword)) {
                 JOptionPane.showMessageDialog(LoginDialog.this,
                         "Hi " + username + "! You have successfully logged in.",
                         "Login", JOptionPane.INFORMATION_MESSAGE);
@@ -85,10 +86,13 @@ public class LoginDialog extends JDialog {
                         "Sign Up", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            if (register(username, password)) {
+            String hashedPassword = hashPassword(password);
+            if (register(username, hashedPassword)) {
                 JOptionPane.showMessageDialog(LoginDialog.this,
                         "User registered successfully! You can now login.",
                         "Sign Up", JOptionPane.INFORMATION_MESSAGE);
+                tfUsername.setText("");
+                pfPassword.setText("");
             } else {
                 JOptionPane.showMessageDialog(LoginDialog.this,
                         "Registration failed! Username may already exist.",
@@ -114,7 +118,7 @@ public class LoginDialog extends JDialog {
         return succeeded;
     }
 
-    private boolean authenticate(String username, String password) {
+    private boolean authenticate(String username, String hashedPassword) {
         boolean valid = false;
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -125,7 +129,7 @@ public class LoginDialog extends JDialog {
                 String sql = "SELECT * FROM user WHERE username = ? AND password = ?";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, username);
-                    pst.setString(2, password);
+                    pst.setString(2, hashedPassword);
                     try (ResultSet rs = pst.executeQuery()) {
                         if (rs.next()) {
                             valid = true;
@@ -142,7 +146,7 @@ public class LoginDialog extends JDialog {
         return valid;
     }
 
-    private boolean register(String username, String password) {
+    private boolean register(String username, String hashedPassword) {
         boolean success = false;
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -163,7 +167,7 @@ public class LoginDialog extends JDialog {
                 String insertSql = "INSERT INTO user (username, password) VALUES (?, ?)";
                 try (PreparedStatement pst = conn.prepareStatement(insertSql)) {
                     pst.setString(1, username);
-                    pst.setString(2, password);
+                    pst.setString(2, hashedPassword);
                     int rowCount = pst.executeUpdate();
                     if (rowCount > 0) {
                         success = true;
@@ -177,5 +181,20 @@ public class LoginDialog extends JDialog {
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
         return success;
+    }
+
+    private String hashPassword(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(password.getBytes("UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }
