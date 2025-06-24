@@ -116,13 +116,22 @@ public class GameMain extends JPanel {
         // Run GUI construction codes in Event-Dispatching thread for thread safety
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             public void run() {
-                JFrame frame = new JFrame(TITLE);
-                // Set the content-pane of the JFrame to an instance of main JPanel
-                frame.setContentPane(new GameMain());
-                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                frame.pack();
-                frame.setLocationRelativeTo(null); // center the application window
-                frame.setVisible(true);            // show it
+                LoginDialog loginDlg = new LoginDialog(null);
+                loginDlg.setVisible(true);
+                if (loginDlg.isSucceeded()){
+                    JFrame frame = new JFrame(TITLE);
+                    GameMain gamePanel = new GameMain();
+                    frame.setContentPane(new GameMain());
+                    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                    frame.pack();
+                    frame.setLocationRelativeTo(null);
+                    frame.setTitle(TITLE + " - Player: " + loginDlg.getUsername());
+                    frame.setVisible(true);
+                }
+
+                else {
+                    System.exit(0);
+                }
             }
         });
     }
