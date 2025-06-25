@@ -18,9 +18,8 @@ public class GameMain extends JPanel {
     private State currentState;
     private Seed currentPlayer;
     private JLabel statusBar;
-    private JButton leaderboardButton, vsPlayerButton, vsAIButton;
-    private JPanel topPanel;  // Field supaya bisa disembunyikan/dimunculkan
-    private boolean vsComputer = false;
+    private JPanel topPanel;
+    private boolean vsComputer;
     private String username;
 
     private static final String DB_URL = "jdbc:mysql://mysql-3cca993-fixgmc-e8b8.c.aivencloud.com:21268/tictactoedb?sslmode=require";
@@ -43,16 +42,8 @@ public class GameMain extends JPanel {
         statusBar.setPreferredSize(new Dimension(300, 30));
         statusBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 12));
 
-        // Inisialisasi topPanel dan tombol
         topPanel = new JPanel();
-        leaderboardButton = new JButton("Leaderboard");
-        vsPlayerButton = new JButton("Vs Player");
-        vsAIButton = new JButton("Vs Komputer");
-
-        topPanel.add(vsPlayerButton);
-        topPanel.add(vsAIButton);
-        topPanel.add(leaderboardButton);
-
+        topPanel.setVisible(false);
         add(topPanel, BorderLayout.NORTH);
         add(statusBar, BorderLayout.SOUTH);
 
@@ -88,16 +79,6 @@ public class GameMain extends JPanel {
                 repaint();
             }
         });
-
-        leaderboardButton.addActionListener(e -> showLeaderboard());
-        vsPlayerButton.addActionListener(e -> {
-            this.vsComputer = false;
-            newGame();
-        });
-        vsAIButton.addActionListener(e -> {
-            this.vsComputer = true;
-            newGame();
-        });
     }
 
     public void initGame() {
@@ -113,15 +94,10 @@ public class GameMain extends JPanel {
         currentPlayer = Seed.CROSS;
         currentState = State.PLAYING;
         repaint();
-
-        // Sembunyikan tombol saat game berjalan
-        if (topPanel != null) {
-            topPanel.setVisible(false);
-        }
     }
 
     private void makeComputerMove() {
-        java.util.List<int[]> emptyCells = new java.util.ArrayList<>();
+        ArrayList<int[]> emptyCells = new ArrayList<>();
         for (int row = 0; row < board.ROWS; ++row) {
             for (int col = 0; col < board.COLS; ++col) {
                 if (board.cells[row][col].content == Seed.NO_SEED) {
@@ -132,10 +108,8 @@ public class GameMain extends JPanel {
 
         if (!emptyCells.isEmpty()) {
             int[] move = emptyCells.get((int) (Math.random() * emptyCells.size()));
-            int row = move[0];
-            int col = move[1];
-            board.cells[row][col].content = currentPlayer;
-            currentState = board.stepGame(currentPlayer, row, col);
+            board.cells[move[0]][move[1]].content = currentPlayer;
+            currentState = board.stepGame(currentPlayer, move[0], move[1]);
         }
     }
 
@@ -153,6 +127,7 @@ public class GameMain extends JPanel {
             case DRAW -> {
                 statusBar.setText("Draw! Click to play again.");
                 updateResult(false);
+                showLeaderboardAndRestart(); // langsung kembali ke setup
             }
             case CROSS_WON, NOUGHT_WON -> {
                 String winnerName;
@@ -174,75 +149,83 @@ public class GameMain extends JPanel {
                 statusBar.setText(winnerName + " won! Click to play again.");
                 updateResult(isWinner);
 
-                // Ganti kode JOptionPane lama dengan yang ini:
-                JPanel panel = new JPanel();
-                panel.setBackground(new Color(245, 236, 224));
-                panel.setLayout(new BorderLayout(10, 10));
+                // Tampilkan ucapan selamat
+                SwingUtilities.invokeLater(() -> {
+                    JPanel panel = new JPanel(new BorderLayout(10, 10));
+                    panel.setBackground(new Color(245, 236, 224));
 
-                JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.informationIcon"));
-                panel.add(iconLabel, BorderLayout.WEST);
+                    JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.informationIcon"));
+                    panel.add(iconLabel, BorderLayout.WEST);
 
-                JLabel messageLabel = new JLabel(
-                    "<html><center>"
-                    + "<h1 style='color: #4CAF50;'>🎉 Congratulations, " + winnerName + "! 🎉</h1>"
-                    + "<br><p style='font-size:14px;'>Permainan telah selesai.</p>"
-                    + "</center></html>");
-                messageLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-                panel.add(messageLabel, BorderLayout.CENTER);
+                    JLabel messageLabel = new JLabel(
+                        "<html><center>"
+                        + "<h1 style='color: #4CAF50;'>🎉 Congratulations, " + winnerName + "! 🎉</h1>"
+                        + "<br><p style='font-size:14px;'>Permainan telah selesai.</p>"
+                        + "</center></html>");
+                    messageLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+                    panel.add(messageLabel, BorderLayout.CENTER);
 
-                JOptionPane.showMessageDialog(this, panel, "Game Selesai", JOptionPane.PLAIN_MESSAGE);
+                    JOptionPane.showMessageDialog(this, panel, "Game Selesai", JOptionPane.PLAIN_MESSAGE);
 
-                showLeaderboard();
+                    // Setelah ucapan ditutup, tampilkan leaderboard dan restart
+                    showLeaderboardAndRestart();
+                });
             }
         }
     }
 
 
+    private void showWinMessage(String winnerName) {
+        JPanel panel = new JPanel();
+        panel.setBackground(COLOR_BG);
+        panel.setLayout(new BorderLayout(10, 10));
 
-        private void updateResult(boolean win) {
-            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = win ? "UPDATE user SET win = win + 1 WHERE username = ?" : "UPDATE user SET lose = lose + 1 WHERE username = ?";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
-                    pst.setString(1, username);
-                    int updated = pst.executeUpdate();
-                    System.out.println("Updating results for user: " + username + " win: " + win);
-                    System.out.println("Rows updated: " + updated);
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
+        JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.informationIcon"));
+        panel.add(iconLabel, BorderLayout.WEST);
 
-        private void showLeaderboard() {
-            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-                String sql = "SELECT username, win FROM user ORDER BY win DESC LIMIT 10";
-                try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
-                    ArrayList<String> leaders = new ArrayList<>();
-                    while (rs.next()) {
-                        leaders.add(rs.getString("username") + " - Wins: " + rs.getInt("win"));
-                    }
-                    JOptionPane.showMessageDialog(this, String.join("\n", leaders), "Leaderboard", JOptionPane.INFORMATION_MESSAGE);
-                }
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error fetching leaderboard.", "Error", JOptionPane.ERROR_MESSAGE);
-                ex.printStackTrace();
+        JLabel messageLabel = new JLabel(
+            "<html><center>"
+            + "<h1 style='color: #4CAF50;'>🎉 Congratulations, " + winnerName + "! 🎉</h1>"
+            + "<br><p style='font-size:14px;'>Permainan telah selesai.</p>"
+            + "</center></html>");
+        messageLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        panel.add(messageLabel, BorderLayout.CENTER);
+
+        JOptionPane.showMessageDialog(this, panel, "Game Selesai", JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private void updateResult(boolean win) {
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+            String sql = win ? "UPDATE user SET win = win + 1 WHERE username = ?" : "UPDATE user SET lose = lose + 1 WHERE username = ?";
+            try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                pst.setString(1, username);
+                pst.executeUpdate();
             }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
+    }
 
     private void showLeaderboardAndRestart() {
-        showLeaderboard();
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+            String sql = "SELECT username, win FROM user ORDER BY win DESC LIMIT 10";
+            try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+                ArrayList<String> leaders = new ArrayList<>();
+                while (rs.next()) {
+                    leaders.add(rs.getString("username") + " - Wins: " + rs.getInt("win"));
+                }
+                JOptionPane.showMessageDialog(this, String.join("\n", leaders), "Leaderboard", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error fetching leaderboard.", "Error", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
 
-        // Cari JFrame induk (yang punya panel ini)
         Window window = SwingUtilities.getWindowAncestor(this);
         if (window instanceof JFrame frame) {
-            frame.dispose();  // tutup frame game
+            frame.dispose();
 
-            // Buka lagi menu login & setup (bisa langsung ke setup jika ingin)
             SwingUtilities.invokeLater(() -> {
-                LoginDialog loginDialog = new LoginDialog(null);
-                loginDialog.setVisible(true);
-                if (!loginDialog.isSucceeded()) System.exit(0);
-
                 GameSetupDialog setupDialog = new GameSetupDialog(null);
                 setupDialog.setVisible(true);
                 if (!setupDialog.isConfirmed()) System.exit(0);
@@ -251,7 +234,7 @@ public class GameMain extends JPanel {
                 boolean vsComputer = setupDialog.isVsComputer();
 
                 JFrame newFrame = new JFrame(TITLE);
-                newFrame.setContentPane(new GameMain(loginDialog.getUsername(), boardSize, vsComputer));
+                newFrame.setContentPane(new GameMain(username, boardSize, vsComputer));
                 newFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 newFrame.pack();
                 newFrame.setLocationRelativeTo(null);
@@ -260,12 +243,13 @@ public class GameMain extends JPanel {
         }
     }
 
-
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             LoginDialog loginDialog = new LoginDialog(null);
             loginDialog.setVisible(true);
             if (!loginDialog.isSucceeded()) System.exit(0);
+
+            String username = loginDialog.getUsername();
 
             GameSetupDialog setupDialog = new GameSetupDialog(null);
             setupDialog.setVisible(true);
@@ -275,7 +259,7 @@ public class GameMain extends JPanel {
             boolean vsComputer = setupDialog.isVsComputer();
 
             JFrame frame = new JFrame(TITLE);
-            frame.setContentPane(new GameMain(loginDialog.getUsername(), boardSize, vsComputer));
+            frame.setContentPane(new GameMain(username, boardSize, vsComputer));
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.pack();
             frame.setLocationRelativeTo(null);
