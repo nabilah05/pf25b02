@@ -26,11 +26,14 @@ public class GameMain extends JPanel {
     private static final String DB_USER = "avnadmin";
     private static final String DB_PASSWORD = "AVNS_1q_ZM4X2qbl8OKtYMD7";
 
-    public GameMain(String username) {
+    public GameMain(String username, int boardSize, boolean vsComputer) {
         this.username = username;
+        this.vsComputer = vsComputer;
+
+        board = new Board(boardSize, boardSize);
 
         setLayout(new BorderLayout());
-        setPreferredSize(new Dimension(Board.CANVAS_WIDTH, Board.CANVAS_HEIGHT + 50));
+        setPreferredSize(new Dimension(board.CANVAS_WIDTH, board.CANVAS_HEIGHT + 50));
 
         statusBar = new JLabel("Welcome, " + username);
         statusBar.setFont(FONT_STATUS);
@@ -42,7 +45,7 @@ public class GameMain extends JPanel {
         JPanel topPanel = new JPanel();
         leaderboardButton = new JButton("Leaderboard");
         vsPlayerButton = new JButton("Vs Player");
-        vsAIButton = new JButton("Vs AI");
+        vsAIButton = new JButton("Vs Komputer");
 
         topPanel.add(vsPlayerButton);
         topPanel.add(vsAIButton);
@@ -59,7 +62,7 @@ public class GameMain extends JPanel {
                 int col = e.getX() / Cell.SIZE;
 
                 if (currentState == State.PLAYING) {
-                    if (row < Board.ROWS && col < Board.COLS && board.cells[row][col].content == Seed.NO_SEED) {
+                    if (row < board.ROWS && col < board.COLS && board.cells[row][col].content == Seed.NO_SEED) {
                         board.cells[row][col].content = currentPlayer;
                         currentState = board.stepGame(currentPlayer, row, col);
                         repaint();
@@ -86,23 +89,22 @@ public class GameMain extends JPanel {
 
         leaderboardButton.addActionListener(e -> showLeaderboard());
         vsPlayerButton.addActionListener(e -> {
-            vsComputer = false;
+            this.vsComputer = false;
             newGame();
         });
         vsAIButton.addActionListener(e -> {
-            vsComputer = true;
+            this.vsComputer = true;
             newGame();
         });
     }
 
     public void initGame() {
-        board = new Board();
         newGame();
     }
 
     public void newGame() {
-        for (int row = 0; row < Board.ROWS; ++row) {
-            for (int col = 0; col < Board.COLS; ++col) {
+        for (int row = 0; row < board.ROWS; ++row) {
+            for (int col = 0; col < board.COLS; ++col) {
                 board.cells[row][col].content = Seed.NO_SEED;
             }
         }
@@ -113,8 +115,8 @@ public class GameMain extends JPanel {
 
     private void makeComputerMove() {
         java.util.List<int[]> emptyCells = new java.util.ArrayList<>();
-        for (int row = 0; row < Board.ROWS; ++row) {
-            for (int col = 0; col < Board.COLS; ++col) {
+        for (int row = 0; row < board.ROWS; ++row) {
+            for (int col = 0; col < board.COLS; ++col) {
                 if (board.cells[row][col].content == Seed.NO_SEED) {
                     emptyCells.add(new int[]{row, col});
                 }
@@ -165,6 +167,12 @@ public class GameMain extends JPanel {
 
                 statusBar.setText(winnerName + " won! Click to play again.");
                 updateResult(isWinner);
+
+                JOptionPane.showMessageDialog(this,
+                    "Congratulations " + winnerName + "!\nPermainan telah selesai.",
+                    "Game Selesai", JOptionPane.INFORMATION_MESSAGE);
+                    
+                showLeaderboard();
             }
         }
     }
@@ -203,16 +211,22 @@ public class GameMain extends JPanel {
         SwingUtilities.invokeLater(() -> {
             LoginDialog loginDialog = new LoginDialog(null);
             loginDialog.setVisible(true);
-            if (loginDialog.isSucceeded()) {
-                JFrame frame = new JFrame(TITLE);
-                frame.setContentPane(new GameMain(loginDialog.getUsername()));
-                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                frame.pack();
-                frame.setLocationRelativeTo(null);
-                frame.setVisible(true);
-            } else {
-                System.exit(0);
-            }
+            if (!loginDialog.isSucceeded()) System.exit(0);
+
+            GameSetupDialog setupDialog = new GameSetupDialog(null);
+            setupDialog.setVisible(true);
+            if (!setupDialog.isConfirmed()) System.exit(0);
+
+            int boardSize = setupDialog.getSelectedSize();
+            boolean vsComputer = setupDialog.isVsComputer();
+
+            JFrame frame = new JFrame(TITLE);
+            frame.setContentPane(new GameMain(loginDialog.getUsername(), boardSize, vsComputer));
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
         });
     }
+
 }
