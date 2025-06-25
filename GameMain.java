@@ -19,6 +19,7 @@ public class GameMain extends JPanel {
     private Seed currentPlayer;
     private JLabel statusBar;
     private JButton leaderboardButton, vsPlayerButton, vsAIButton;
+    private JPanel topPanel;  // Field supaya bisa disembunyikan/dimunculkan
     private boolean vsComputer = false;
     private String username;
 
@@ -42,7 +43,8 @@ public class GameMain extends JPanel {
         statusBar.setPreferredSize(new Dimension(300, 30));
         statusBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 12));
 
-        JPanel topPanel = new JPanel();
+        // Inisialisasi topPanel dan tombol
+        topPanel = new JPanel();
         leaderboardButton = new JButton("Leaderboard");
         vsPlayerButton = new JButton("Vs Player");
         vsAIButton = new JButton("Vs Komputer");
@@ -111,6 +113,11 @@ public class GameMain extends JPanel {
         currentPlayer = Seed.CROSS;
         currentState = State.PLAYING;
         repaint();
+
+        // Sembunyikan tombol saat game berjalan
+        if (topPanel != null) {
+            topPanel.setVisible(false);
+        }
     }
 
     private void makeComputerMove() {
@@ -132,9 +139,8 @@ public class GameMain extends JPanel {
         }
     }
 
-
     @Override
-    public void paintComponent(Graphics g) {
+    protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         setBackground(COLOR_BG);
         board.paint(g);
@@ -147,6 +153,11 @@ public class GameMain extends JPanel {
             case DRAW -> {
                 statusBar.setText("Draw! Click to play again.");
                 updateResult(false);
+
+                // Setelah game selesai, langsung show leaderboard dan kembali ke setup
+                SwingUtilities.invokeLater(() -> {
+                    showLeaderboardAndRestart();
+                });
             }
             case CROSS_WON, NOUGHT_WON -> {
                 String winnerName;
@@ -168,14 +179,16 @@ public class GameMain extends JPanel {
                 statusBar.setText(winnerName + " won! Click to play again.");
                 updateResult(isWinner);
 
-                JOptionPane.showMessageDialog(this,
-                    "Congratulations " + winnerName + "!\nPermainan telah selesai.",
-                    "Game Selesai", JOptionPane.INFORMATION_MESSAGE);
-                    
-                showLeaderboard();
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(this,
+                            "Congratulations " + winnerName + "!\nPermainan telah selesai.",
+                            "Game Selesai", JOptionPane.INFORMATION_MESSAGE);
+                    showLeaderboardAndRestart();
+                });
             }
         }
     }
+
 
     private void updateResult(boolean win) {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
@@ -207,6 +220,38 @@ public class GameMain extends JPanel {
         }
     }
 
+    private void showLeaderboardAndRestart() {
+        showLeaderboard();
+
+        // Cari JFrame induk (yang punya panel ini)
+        Window window = SwingUtilities.getWindowAncestor(this);
+        if (window instanceof JFrame frame) {
+            frame.dispose();  // tutup frame game
+
+            // Buka lagi menu login & setup (bisa langsung ke setup jika ingin)
+            SwingUtilities.invokeLater(() -> {
+                LoginDialog loginDialog = new LoginDialog(null);
+                loginDialog.setVisible(true);
+                if (!loginDialog.isSucceeded()) System.exit(0);
+
+                GameSetupDialog setupDialog = new GameSetupDialog(null);
+                setupDialog.setVisible(true);
+                if (!setupDialog.isConfirmed()) System.exit(0);
+
+                int boardSize = setupDialog.getSelectedSize();
+                boolean vsComputer = setupDialog.isVsComputer();
+
+                JFrame newFrame = new JFrame(TITLE);
+                newFrame.setContentPane(new GameMain(loginDialog.getUsername(), boardSize, vsComputer));
+                newFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                newFrame.pack();
+                newFrame.setLocationRelativeTo(null);
+                newFrame.setVisible(true);
+            });
+        }
+    }
+
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             LoginDialog loginDialog = new LoginDialog(null);
@@ -228,5 +273,4 @@ public class GameMain extends JPanel {
             frame.setVisible(true);
         });
     }
-
 }
