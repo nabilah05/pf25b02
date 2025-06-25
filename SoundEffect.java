@@ -20,7 +20,6 @@ public class SoundEffect {
         }
     }
 
-    // Contoh penggunaan
     public static void main(String[] args) {
         SoundEffect sound = new SoundEffect();
         sound.playSound("audio/click.wav");
