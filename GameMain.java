@@ -18,7 +18,6 @@ public class GameMain extends JPanel {
     private State currentState;
     private Seed currentPlayer;
     private JLabel statusBar;
-    private JPanel topPanel;
     private boolean vsComputer;
     private String username;
 
@@ -29,9 +28,14 @@ public class GameMain extends JPanel {
     public GameMain(String username, int boardSize, boolean vsComputer) {
         this.username = username;
         this.vsComputer = vsComputer;
+        this.board = new Board(boardSize, boardSize);
 
-        board = new Board(boardSize, boardSize);
+        initializeUI();
+        initGame();
+        setupMouseListener();
+    }
 
+    private void initializeUI() {
         setLayout(new BorderLayout());
         setPreferredSize(new Dimension(board.CANVAS_WIDTH, board.CANVAS_HEIGHT + 50));
 
@@ -42,37 +46,17 @@ public class GameMain extends JPanel {
         statusBar.setPreferredSize(new Dimension(300, 30));
         statusBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 12));
 
-        topPanel = new JPanel();
-        topPanel.setVisible(false);
-        add(topPanel, BorderLayout.NORTH);
         add(statusBar, BorderLayout.SOUTH);
+    }
 
-        initGame();
-
+    private void setupMouseListener() {
         addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 int row = e.getY() / Cell.SIZE;
                 int col = e.getX() / Cell.SIZE;
 
                 if (currentState == State.PLAYING) {
-                    if (row < board.ROWS && col < board.COLS && board.cells[row][col].content == Seed.NO_SEED) {
-                        board.cells[row][col].content = currentPlayer;
-                        currentState = board.stepGame(currentPlayer, row, col);
-                        repaint();
-
-                        if (vsComputer && currentState == State.PLAYING) {
-                            currentPlayer = (currentPlayer == Seed.CROSS) ? Seed.NOUGHT : Seed.CROSS;
-                            Timer timer = new Timer(500, ev -> {
-                                makeComputerMove();
-                                currentPlayer = (currentPlayer == Seed.CROSS) ? Seed.NOUGHT : Seed.CROSS;
-                                repaint();
-                            });
-                            timer.setRepeats(false);
-                            timer.start();
-                        } else {
-                            currentPlayer = (currentPlayer == Seed.CROSS) ? Seed.NOUGHT : Seed.CROSS;
-                        }
-                    }
+                    handlePlayerMove(row, col);
                 } else {
                     newGame();
                 }
@@ -81,6 +65,26 @@ public class GameMain extends JPanel {
         });
     }
 
+    private void handlePlayerMove(int row, int col) {
+        if (row < board.ROWS && col < board.COLS && board.cells[row][col].content == Seed.NO_SEED) {
+            board.cells[row][col].content = currentPlayer;
+            currentState = board.stepGame(currentPlayer, row, col);
+            repaint();
+
+            if (vsComputer && currentState == State.PLAYING) {
+                currentPlayer = currentPlayer.opposite();
+                Timer timer = new Timer(500, ev -> {
+                    makeComputerMove();
+                    currentPlayer = currentPlayer.opposite();
+                    repaint();
+                });
+                timer.setRepeats(false);
+                timer.start();
+            } else {
+                currentPlayer = currentPlayer.opposite();
+            }
+        }
+    }
     public void initGame() {
         newGame();
     }
@@ -118,7 +122,10 @@ public class GameMain extends JPanel {
         super.paintComponent(g);
         setBackground(COLOR_BG);
         board.paint(g);
+        updateGameStatus();
+    }
 
+    private void updateGameStatus() {
         switch (currentState) {
             case PLAYING -> {
                 String playerName = (currentPlayer == Seed.CROSS) ? username : (vsComputer ? "Computer" : "Player 2");
@@ -127,76 +134,59 @@ public class GameMain extends JPanel {
             case DRAW -> {
                 statusBar.setText("Draw! Click to play again.");
                 updateResult(false);
-                showLeaderboardAndRestart(); // langsung kembali ke setup
+                showLeaderboardAndRestart();
             }
-            case CROSS_WON, NOUGHT_WON -> {
-                String winnerName;
-                boolean isWinner = false;
-
-                if (vsComputer) {
-                    if (currentState == State.CROSS_WON) {
-                        winnerName = (currentPlayer == Seed.NOUGHT) ? username : "Computer";
-                        isWinner = (currentPlayer == Seed.NOUGHT);
-                    } else {
-                        winnerName = (currentPlayer == Seed.CROSS) ? username : "Computer";
-                        isWinner = (currentPlayer == Seed.CROSS);
-                    }
-                } else {
-                    winnerName = (currentState == State.CROSS_WON) ? username : "Player 2";
-                    isWinner = (currentState == State.CROSS_WON);
-                }
-
-                statusBar.setText(winnerName + " won! Click to play again.");
-                updateResult(isWinner);
-
-                // Tampilkan ucapan selamat
-                SwingUtilities.invokeLater(() -> {
-                    JPanel panel = new JPanel(new BorderLayout(10, 10));
-                    panel.setBackground(new Color(245, 236, 224));
-
-                    JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.informationIcon"));
-                    panel.add(iconLabel, BorderLayout.WEST);
-
-                    JLabel messageLabel = new JLabel(
-                        "<html><center>"
-                        + "<h1 style='color: #4CAF50;'>🎉 Congratulations, " + winnerName + "! 🎉</h1>"
-                        + "<br><p style='font-size:14px;'>Permainan telah selesai.</p>"
-                        + "</center></html>");
-                    messageLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-                    panel.add(messageLabel, BorderLayout.CENTER);
-
-                    JOptionPane.showMessageDialog(this, panel, "Game Selesai", JOptionPane.PLAIN_MESSAGE);
-
-                    // Setelah ucapan ditutup, tampilkan leaderboard dan restart
-                    showLeaderboardAndRestart();
-                });
-            }
+            case CROSS_WON, NOUGHT_WON -> handleGameEnd();
         }
     }
 
+    private void handleGameEnd() {
+        String winnerName;
+        boolean isWinner = false;
+
+        if (vsComputer) {
+            if (currentState == State.CROSS_WON) {
+                winnerName = (currentPlayer == Seed.NOUGHT) ? username : "Computer";
+                isWinner = (currentPlayer == Seed.NOUGHT);
+            } else {
+                winnerName = (currentPlayer == Seed.CROSS) ? username : "Computer";
+                isWinner = (currentPlayer == Seed.CROSS);
+            }
+        } else {
+            winnerName = (currentState == State.CROSS_WON) ? username : "Player 2";
+            isWinner = (currentState == State.CROSS_WON);
+        }
+
+        statusBar.setText(winnerName + " won! Click to play again.");
+        updateResult(isWinner);
+        showWinMessage(winnerName);
+    }
 
     private void showWinMessage(String winnerName) {
-        JPanel panel = new JPanel();
-        panel.setBackground(COLOR_BG);
-        panel.setLayout(new BorderLayout(10, 10));
+        SwingUtilities.invokeLater(() -> {
+            JPanel panel = new JPanel(new BorderLayout(10, 10));
+            panel.setBackground(COLOR_BG);
 
-        JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.informationIcon"));
-        panel.add(iconLabel, BorderLayout.WEST);
+            JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.informationIcon"));
+            panel.add(iconLabel, BorderLayout.WEST);
 
-        JLabel messageLabel = new JLabel(
-            "<html><center>"
-            + "<h1 style='color: #4CAF50;'>🎉 Congratulations, " + winnerName + "! 🎉</h1>"
-            + "<br><p style='font-size:14px;'>Permainan telah selesai.</p>"
-            + "</center></html>");
-        messageLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        panel.add(messageLabel, BorderLayout.CENTER);
+            JLabel messageLabel = new JLabel(
+                "<html><center>"
+                + "<h1 style='color: #4CAF50;'> Selamat, " + winnerName + "! Kamu menang! </h1>"
+                + "<br><p style='font-size:14px;'>Permainan telah selesai.</p>"
+                + "</center></html>");
+            messageLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            panel.add(messageLabel, BorderLayout.CENTER);
 
-        JOptionPane.showMessageDialog(this, panel, "Game Selesai", JOptionPane.PLAIN_MESSAGE);
+            JOptionPane.showMessageDialog(this, panel, "Game Selesai", JOptionPane.PLAIN_MESSAGE);
+            showLeaderboardAndRestart();
+        });
     }
 
     private void updateResult(boolean win) {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = win ? "UPDATE user SET win = win + 1 WHERE username = ?" : "UPDATE user SET lose = lose + 1 WHERE username = ?";
+            String sql = win ? "UPDATE user SET win = win + 1 WHERE username = ?" 
+                           : "UPDATE user SET lose = lose + 1 WHERE username = ?";
             try (PreparedStatement pst = conn.prepareStatement(sql)) {
                 pst.setString(1, username);
                 pst.executeUpdate();
@@ -224,23 +214,23 @@ public class GameMain extends JPanel {
         Window window = SwingUtilities.getWindowAncestor(this);
         if (window instanceof JFrame frame) {
             frame.dispose();
-
-            SwingUtilities.invokeLater(() -> {
-                GameSetupDialog setupDialog = new GameSetupDialog(null);
-                setupDialog.setVisible(true);
-                if (!setupDialog.isConfirmed()) System.exit(0);
-
-                int boardSize = setupDialog.getSelectedSize();
-                boolean vsComputer = setupDialog.isVsComputer();
-
-                JFrame newFrame = new JFrame(TITLE);
-                newFrame.setContentPane(new GameMain(username, boardSize, vsComputer));
-                newFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                newFrame.pack();
-                newFrame.setLocationRelativeTo(null);
-                newFrame.setVisible(true);
-            });
+            restartGame();
         }
+    }
+
+    private void restartGame() {
+        SwingUtilities.invokeLater(() -> {
+            GameSetupDialog setupDialog = new GameSetupDialog(null);
+            setupDialog.setVisible(true);
+            if (!setupDialog.isConfirmed()) System.exit(0);
+
+            JFrame newFrame = new JFrame(TITLE);
+            newFrame.setContentPane(new GameMain(username, setupDialog.getSelectedSize(), setupDialog.isVsComputer()));
+            newFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            newFrame.pack();
+            newFrame.setLocationRelativeTo(null);
+            newFrame.setVisible(true);
+        });
     }
 
     public static void main(String[] args) {
@@ -249,17 +239,12 @@ public class GameMain extends JPanel {
             loginDialog.setVisible(true);
             if (!loginDialog.isSucceeded()) System.exit(0);
 
-            String username = loginDialog.getUsername();
-
             GameSetupDialog setupDialog = new GameSetupDialog(null);
             setupDialog.setVisible(true);
             if (!setupDialog.isConfirmed()) System.exit(0);
 
-            int boardSize = setupDialog.getSelectedSize();
-            boolean vsComputer = setupDialog.isVsComputer();
-
             JFrame frame = new JFrame(TITLE);
-            frame.setContentPane(new GameMain(username, boardSize, vsComputer));
+            frame.setContentPane(new GameMain(loginDialog.getUsername(), setupDialog.getSelectedSize(), setupDialog.isVsComputer()));
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.pack();
             frame.setLocationRelativeTo(null);
