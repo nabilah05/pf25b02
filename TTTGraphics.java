@@ -71,6 +71,10 @@ public class TTTGraphics extends JFrame {
                             && col < COLS && board[row][col] == Seed.NO_SEED) {
                         // Update board[][] and return the new game state after the move
                         currentState = stepGame(currentPlayer, row, col);
+
+                        SoundEffect sfx = new SoundEffect();
+                        sfx.playSound("audio/click.wav");
+
                         // Switch player
                         currentPlayer = (currentPlayer == Seed.CROSS) ? Seed.NOUGHT : Seed.CROSS;
                     }
