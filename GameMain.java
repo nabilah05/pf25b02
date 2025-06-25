@@ -200,11 +200,39 @@ public class GameMain extends JPanel {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
             String sql = "SELECT username, win FROM user ORDER BY win DESC LIMIT 10";
             try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
-                ArrayList<String> leaders = new ArrayList<>();
+
+                JPanel panel = new JPanel();
+                panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+                panel.setBackground(new Color(245, 236, 224));
+
+                JLabel titleLabel = new JLabel("🏆 Top 10 Leaderboard");
+                titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+                titleLabel.setForeground(new Color(120, 66, 18));
+                titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                panel.add(titleLabel);
+                panel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+                int rank = 1;
                 while (rs.next()) {
-                    leaders.add(rs.getString("username") + " - Wins: " + rs.getInt("win"));
+                    String user = rs.getString("username");
+                    int wins = rs.getInt("win");
+
+                    JLabel label = new JLabel(rank + ". " + user + " - " + wins + " Wins");
+                    label.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+                    label.setForeground(new Color(89, 114, 90));
+                    label.setAlignmentX(Component.CENTER_ALIGNMENT);
+                    panel.add(label);
+                    panel.add(Box.createRigidArea(new Dimension(0, 5)));
+
+                    rank++;
                 }
-                JOptionPane.showMessageDialog(this, String.join("\n", leaders), "Leaderboard", JOptionPane.INFORMATION_MESSAGE);
+
+                JScrollPane scrollPane = new JScrollPane(panel);
+                scrollPane.setPreferredSize(new Dimension(300, 300));
+                scrollPane.setBorder(BorderFactory.createEmptyBorder());
+                scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+                JOptionPane.showMessageDialog(this, scrollPane, "Leaderboard", JOptionPane.PLAIN_MESSAGE);
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error fetching leaderboard.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -217,6 +245,7 @@ public class GameMain extends JPanel {
             restartGame();
         }
     }
+
 
     private void restartGame() {
         SwingUtilities.invokeLater(() -> {
