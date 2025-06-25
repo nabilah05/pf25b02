@@ -112,16 +112,24 @@ public class GameMain extends JPanel {
     }
 
     private void makeComputerMove() {
+        java.util.List<int[]> emptyCells = new java.util.ArrayList<>();
         for (int row = 0; row < Board.ROWS; ++row) {
             for (int col = 0; col < Board.COLS; ++col) {
                 if (board.cells[row][col].content == Seed.NO_SEED) {
-                    board.cells[row][col].content = currentPlayer;
-                    currentState = board.stepGame(currentPlayer, row, col);
-                    return;
+                    emptyCells.add(new int[]{row, col});
                 }
             }
         }
+
+        if (!emptyCells.isEmpty()) {
+            int[] move = emptyCells.get((int) (Math.random() * emptyCells.size()));
+            int row = move[0];
+            int col = move[1];
+            board.cells[row][col].content = currentPlayer;
+            currentState = board.stepGame(currentPlayer, row, col);
+        }
     }
+
 
     @Override
     public void paintComponent(Graphics g) {
