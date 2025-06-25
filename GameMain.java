@@ -140,7 +140,7 @@ public class GameMain extends JPanel {
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
+    public void paintComponent(Graphics g) {
         super.paintComponent(g);
         setBackground(COLOR_BG);
         board.paint(g);
@@ -153,11 +153,6 @@ public class GameMain extends JPanel {
             case DRAW -> {
                 statusBar.setText("Draw! Click to play again.");
                 updateResult(false);
-
-                // Setelah game selesai, langsung show leaderboard dan kembali ke setup
-                SwingUtilities.invokeLater(() -> {
-                    showLeaderboardAndRestart();
-                });
             }
             case CROSS_WON, NOUGHT_WON -> {
                 String winnerName;
@@ -179,46 +174,60 @@ public class GameMain extends JPanel {
                 statusBar.setText(winnerName + " won! Click to play again.");
                 updateResult(isWinner);
 
-                SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(this,
-                            "Congratulations " + winnerName + "!\nPermainan telah selesai.",
-                            "Game Selesai", JOptionPane.INFORMATION_MESSAGE);
-                    showLeaderboardAndRestart();
-                });
+                // Ganti kode JOptionPane lama dengan yang ini:
+                JPanel panel = new JPanel();
+                panel.setBackground(new Color(245, 236, 224));
+                panel.setLayout(new BorderLayout(10, 10));
+
+                JLabel iconLabel = new JLabel(UIManager.getIcon("OptionPane.informationIcon"));
+                panel.add(iconLabel, BorderLayout.WEST);
+
+                JLabel messageLabel = new JLabel(
+                    "<html><center>"
+                    + "<h1 style='color: #4CAF50;'>🎉 Congratulations, " + winnerName + "! 🎉</h1>"
+                    + "<br><p style='font-size:14px;'>Permainan telah selesai.</p>"
+                    + "</center></html>");
+                messageLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+                panel.add(messageLabel, BorderLayout.CENTER);
+
+                JOptionPane.showMessageDialog(this, panel, "Game Selesai", JOptionPane.PLAIN_MESSAGE);
+
+                showLeaderboard();
             }
         }
     }
 
 
-    private void updateResult(boolean win) {
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = win ? "UPDATE user SET win = win + 1 WHERE username = ?" : "UPDATE user SET lose = lose + 1 WHERE username = ?";
-            try (PreparedStatement pst = conn.prepareStatement(sql)) {
-                pst.setString(1, username);
-                int updated = pst.executeUpdate();
-                System.out.println("Updating results for user: " + username + " win: " + win);
-                System.out.println("Rows updated: " + updated);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
 
-    private void showLeaderboard() {
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
-            String sql = "SELECT username, win FROM user ORDER BY win DESC LIMIT 10";
-            try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
-                ArrayList<String> leaders = new ArrayList<>();
-                while (rs.next()) {
-                    leaders.add(rs.getString("username") + " - Wins: " + rs.getInt("win"));
+        private void updateResult(boolean win) {
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                String sql = win ? "UPDATE user SET win = win + 1 WHERE username = ?" : "UPDATE user SET lose = lose + 1 WHERE username = ?";
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                    pst.setString(1, username);
+                    int updated = pst.executeUpdate();
+                    System.out.println("Updating results for user: " + username + " win: " + win);
+                    System.out.println("Rows updated: " + updated);
                 }
-                JOptionPane.showMessageDialog(this, String.join("\n", leaders), "Leaderboard", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error fetching leaderboard.", "Error", JOptionPane.ERROR_MESSAGE);
-            ex.printStackTrace();
         }
-    }
+
+        private void showLeaderboard() {
+            try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+                String sql = "SELECT username, win FROM user ORDER BY win DESC LIMIT 10";
+                try (Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+                    ArrayList<String> leaders = new ArrayList<>();
+                    while (rs.next()) {
+                        leaders.add(rs.getString("username") + " - Wins: " + rs.getInt("win"));
+                    }
+                    JOptionPane.showMessageDialog(this, String.join("\n", leaders), "Leaderboard", JOptionPane.INFORMATION_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error fetching leaderboard.", "Error", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        }
 
     private void showLeaderboardAndRestart() {
         showLeaderboard();
