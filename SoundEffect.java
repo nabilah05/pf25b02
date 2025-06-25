@@ -19,9 +19,4 @@ public class SoundEffect {
             e.printStackTrace();
         }
     }
-
-    public static void main(String[] args) {
-        SoundEffect sound = new SoundEffect();
-        sound.playSound("audio/click.wav");
-    }
 }

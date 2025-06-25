@@ -22,6 +22,7 @@ public class GameMain extends JPanel {
     private JPanel topPanel;  // Field supaya bisa disembunyikan/dimunculkan
     private boolean vsComputer = false;
     private String username;
+    private SoundEffect soundEffect = new SoundEffect();
 
     private static final String DB_URL = "jdbc:mysql://mysql-3cca993-fixgmc-e8b8.c.aivencloud.com:21268/tictactoedb?sslmode=require";
     private static final String DB_USER = "avnadmin";
@@ -66,6 +67,7 @@ public class GameMain extends JPanel {
                 if (currentState == State.PLAYING) {
                     if (row < board.ROWS && col < board.COLS && board.cells[row][col].content == Seed.NO_SEED) {
                         board.cells[row][col].content = currentPlayer;
+                        soundEffect.playSound("audio/click.wav");
                         currentState = board.stepGame(currentPlayer, row, col);
                         repaint();
 
@@ -135,6 +137,7 @@ public class GameMain extends JPanel {
             int row = move[0];
             int col = move[1];
             board.cells[row][col].content = currentPlayer;
+            soundEffect.playSound("audio/click.wav");
             currentState = board.stepGame(currentPlayer, row, col);
         }
     }
