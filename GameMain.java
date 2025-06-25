@@ -19,6 +19,7 @@ public class GameMain extends JPanel {
     private Seed currentPlayer;
     private JLabel statusBar;
     private JButton leaderboardButton, vsPlayerButton, vsAIButton;
+    private JPanel topPanel;  // Field supaya bisa disembunyikan/dimunculkan
     private boolean vsComputer = false;
     private String username;
 
@@ -26,11 +27,14 @@ public class GameMain extends JPanel {
     private static final String DB_USER = "avnadmin";
     private static final String DB_PASSWORD = "AVNS_1q_ZM4X2qbl8OKtYMD7";
 
-    public GameMain(String username) {
+    public GameMain(String username, int boardSize, boolean vsComputer) {
         this.username = username;
+        this.vsComputer = vsComputer;
+
+        board = new Board(boardSize, boardSize);
 
         setLayout(new BorderLayout());
-        setPreferredSize(new Dimension(Board.CANVAS_WIDTH, Board.CANVAS_HEIGHT + 50));
+        setPreferredSize(new Dimension(board.CANVAS_WIDTH, board.CANVAS_HEIGHT + 50));
 
         statusBar = new JLabel("Welcome, " + username);
         statusBar.setFont(FONT_STATUS);
@@ -39,10 +43,11 @@ public class GameMain extends JPanel {
         statusBar.setPreferredSize(new Dimension(300, 30));
         statusBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 12));
 
-        JPanel topPanel = new JPanel();
+        // Inisialisasi topPanel dan tombol
+        topPanel = new JPanel();
         leaderboardButton = new JButton("Leaderboard");
         vsPlayerButton = new JButton("Vs Player");
-        vsAIButton = new JButton("Vs AI");
+        vsAIButton = new JButton("Vs Komputer");
 
         topPanel.add(vsPlayerButton);
         topPanel.add(vsAIButton);
@@ -59,7 +64,7 @@ public class GameMain extends JPanel {
                 int col = e.getX() / Cell.SIZE;
 
                 if (currentState == State.PLAYING) {
-                    if (row < Board.ROWS && col < Board.COLS && board.cells[row][col].content == Seed.NO_SEED) {
+                    if (row < board.ROWS && col < board.COLS && board.cells[row][col].content == Seed.NO_SEED) {
                         board.cells[row][col].content = currentPlayer;
                         currentState = board.stepGame(currentPlayer, row, col);
                         repaint();
@@ -86,45 +91,56 @@ public class GameMain extends JPanel {
 
         leaderboardButton.addActionListener(e -> showLeaderboard());
         vsPlayerButton.addActionListener(e -> {
-            vsComputer = false;
+            this.vsComputer = false;
             newGame();
         });
         vsAIButton.addActionListener(e -> {
-            vsComputer = true;
+            this.vsComputer = true;
             newGame();
         });
     }
 
     public void initGame() {
-        board = new Board();
         newGame();
     }
 
     public void newGame() {
-        for (int row = 0; row < Board.ROWS; ++row) {
-            for (int col = 0; col < Board.COLS; ++col) {
+        for (int row = 0; row < board.ROWS; ++row) {
+            for (int col = 0; col < board.COLS; ++col) {
                 board.cells[row][col].content = Seed.NO_SEED;
             }
         }
         currentPlayer = Seed.CROSS;
         currentState = State.PLAYING;
         repaint();
+
+        // Sembunyikan tombol saat game berjalan
+        if (topPanel != null) {
+            topPanel.setVisible(false);
+        }
     }
 
     private void makeComputerMove() {
-        for (int row = 0; row < Board.ROWS; ++row) {
-            for (int col = 0; col < Board.COLS; ++col) {
+        java.util.List<int[]> emptyCells = new java.util.ArrayList<>();
+        for (int row = 0; row < board.ROWS; ++row) {
+            for (int col = 0; col < board.COLS; ++col) {
                 if (board.cells[row][col].content == Seed.NO_SEED) {
-                    board.cells[row][col].content = currentPlayer;
-                    currentState = board.stepGame(currentPlayer, row, col);
-                    return;
+                    emptyCells.add(new int[]{row, col});
                 }
             }
+        }
+
+        if (!emptyCells.isEmpty()) {
+            int[] move = emptyCells.get((int) (Math.random() * emptyCells.size()));
+            int row = move[0];
+            int col = move[1];
+            board.cells[row][col].content = currentPlayer;
+            currentState = board.stepGame(currentPlayer, row, col);
         }
     }
 
     @Override
-    public void paintComponent(Graphics g) {
+    protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         setBackground(COLOR_BG);
         board.paint(g);
@@ -137,6 +153,11 @@ public class GameMain extends JPanel {
             case DRAW -> {
                 statusBar.setText("Draw! Click to play again.");
                 updateResult(false);
+
+                // Setelah game selesai, langsung show leaderboard dan kembali ke setup
+                SwingUtilities.invokeLater(() -> {
+                    showLeaderboardAndRestart();
+                });
             }
             case CROSS_WON, NOUGHT_WON -> {
                 String winnerName;
@@ -157,9 +178,17 @@ public class GameMain extends JPanel {
 
                 statusBar.setText(winnerName + " won! Click to play again.");
                 updateResult(isWinner);
+
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(this,
+                            "Congratulations " + winnerName + "!\nPermainan telah selesai.",
+                            "Game Selesai", JOptionPane.INFORMATION_MESSAGE);
+                    showLeaderboardAndRestart();
+                });
             }
         }
     }
+
 
     private void updateResult(boolean win) {
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
@@ -191,20 +220,57 @@ public class GameMain extends JPanel {
         }
     }
 
+    private void showLeaderboardAndRestart() {
+        showLeaderboard();
+
+        // Cari JFrame induk (yang punya panel ini)
+        Window window = SwingUtilities.getWindowAncestor(this);
+        if (window instanceof JFrame frame) {
+            frame.dispose();  // tutup frame game
+
+            // Buka lagi menu login & setup (bisa langsung ke setup jika ingin)
+            SwingUtilities.invokeLater(() -> {
+                LoginDialog loginDialog = new LoginDialog(null);
+                loginDialog.setVisible(true);
+                if (!loginDialog.isSucceeded()) System.exit(0);
+
+                GameSetupDialog setupDialog = new GameSetupDialog(null);
+                setupDialog.setVisible(true);
+                if (!setupDialog.isConfirmed()) System.exit(0);
+
+                int boardSize = setupDialog.getSelectedSize();
+                boolean vsComputer = setupDialog.isVsComputer();
+
+                JFrame newFrame = new JFrame(TITLE);
+                newFrame.setContentPane(new GameMain(loginDialog.getUsername(), boardSize, vsComputer));
+                newFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                newFrame.pack();
+                newFrame.setLocationRelativeTo(null);
+                newFrame.setVisible(true);
+            });
+        }
+    }
+
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             LoginDialog loginDialog = new LoginDialog(null);
             loginDialog.setVisible(true);
-            if (loginDialog.isSucceeded()) {
-                JFrame frame = new JFrame(TITLE);
-                frame.setContentPane(new GameMain(loginDialog.getUsername()));
-                frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                frame.pack();
-                frame.setLocationRelativeTo(null);
-                frame.setVisible(true);
-            } else {
-                System.exit(0);
-            }
+            if (!loginDialog.isSucceeded()) System.exit(0);
+
+            GameSetupDialog setupDialog = new GameSetupDialog(null);
+            setupDialog.setVisible(true);
+            if (!setupDialog.isConfirmed()) System.exit(0);
+
+            int boardSize = setupDialog.getSelectedSize();
+            boolean vsComputer = setupDialog.isVsComputer();
+
+            JFrame frame = new JFrame(TITLE);
+            frame.setContentPane(new GameMain(loginDialog.getUsername(), boardSize, vsComputer));
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
         });
     }
 }
